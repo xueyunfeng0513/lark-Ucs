@@ -1,0 +1,23 @@
+name: Excel row counter tests
+on:
+  pull_request:
+    paths: ['excel_row_counter/**', '.github/workflows/excel-row-counter.yml', '.devcontainer/excel-row-counter/**']
+  push:
+    paths: ['excel_row_counter/**', '.github/workflows/excel-row-counter.yml', '.devcontainer/excel-row-counter/**']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install -r requirements-dev.txt
+        working-directory: excel_row_counter/python
+      - run: python -m pytest -q
+        working-directory: excel_row_counter/python
