@@ -1,6 +1,31 @@
 # 飞书 Excel 行数机器人
 
-第一阶段功能：用户**单聊**发送 `.xlsx` 或 `.xls` → 回复“已收到” → 下载并统计 → 回复总行数和各工作表行数。基于仓库 `robot_quick_start/python` 的 Flask webhook 模式实现。没有 Excel 业务转换或用友接口调用。
+第一阶段功能：用户**单聊**发送 `.xlsx` 或 `.xls` → 回复“已收到” → 下载并统计 → 回复总行数和各工作表行数。支持 Flask webhook 和官方 SDK 长连接（websocket）两种接入方式，共用下载、计数和回复流程。没有 Excel 业务转换或用友接口调用。
+
+## 选择启动方式
+
+| 方式 | 命令（在本目录执行） | 必需凭证 | 公网回调 |
+| --- | --- | --- | --- |
+| 长连接 | `./bootstrap.sh` 或 `python -m excel_counter --transport websocket` | APP_ID、APP_SECRET | 无需 |
+| webhook | `TRANSPORT=webhook ./bootstrap.sh` 或 `python -m excel_counter --transport webhook` | 另需 VERIFICATION_TOKEN、ENCRYPT_KEY | 需公开 3000 端口 |
+
+`bootstrap.sh` 自动安装依赖后启动，调用风格和仓库原 `echo_bot/python/bootstrap.sh` 相同，但入口目录是 `excel_row_counter/python`。已有可用的自建应用可复用；原来的 `echo_bot/python` 仍是回声样例。
+
+脚本优先使用命令行 `--transport`，其次为启动脚本时的环境变量 `TRANSPORT`，否则默认长连接；`.env` 中的 TRANSPORT 不覆盖脚本默认值。直接运行 `python -m excel_counter` 则会读取 `.env` 中的 TRANSPORT，未设置时默认 webhook。
+
+在 Codespaces 仓库根目录启动长连接：
+
+```bash
+git fetch origin
+git switch feat/excel-row-counter
+cd excel_row_counter/python
+# 先通过 Codespaces Secrets 或 .env 配置 APP_ID、APP_SECRET
+./bootstrap.sh
+```
+
+也可使用原有的临时环境变量启动习惯（请把真实密钥通过 Secrets 或本地 .env 提供，避免写进公开聊天、脚本和仓库）。飞书后台“事件与回调”需选**使用长连接接收事件**，订阅 `im.message.receive_v1`，消息读取和发送权限与下文一致。长连接无需 Verification Token、Encrypt Key 或公开端口。
+
+同一个应用在飞书后台选择一种事件订阅方式；两种程序入口可切换使用，并非要求同一应用同时开启两种平台订阅。切换时停止旧进程，在后台切换接入方式，再启动对应命令；保留相同 JOB_DB 可继续未完成任务和去重记录。应用需要持续运行，Codespaces 停止后两种方式都会离线。
 
 示例回复：
 
@@ -39,7 +64,7 @@ python -m pip install -r requirements-dev.txt
 cp .env.example .env
 ```
 
-在 `.env` 配置 `APP_ID`、`APP_SECRET`、`VERIFICATION_TOKEN`、`ENCRYPT_KEY`。
+在 `.env` 配置 `APP_ID`、`APP_SECRET`；使用 webhook 时还需配置 `VERIFICATION_TOKEN`、`ENCRYPT_KEY`。
 `ALLOWED_OPEN_IDS` 可限制为测试人员；留空时接受机器人可用范围内所有用户的单聊文件。只配置一个飞书应用，每个应用使用独立数据库。
 
 ```bash
@@ -47,9 +72,9 @@ python -m excel_counter --check-config
 python -m excel_counter
 ```
 
-服务默认端口 `3000`，回调路由 `/webhook/event`，健康检查 `/healthz`。使用 Waitress，无 Flask debug/reloader。启动命令同时运行通知与计数线程，只需一个终端。配置错误会在启动时说明缺失项，不打印密钥。
+webhook 默认端口 `3000`，回调路由 `/webhook/event`，健康检查 `/healthz`，使用 Waitress，无 Flask debug/reloader；长连接模式不启动 HTTP 服务。两种方式均在同一进程运行通知与计数线程，只需一个终端。配置错误会在启动时说明缺失项，不打印密钥。
 
-## Codespaces 测试
+## Codespaces webhook 测试
 
 1. 在包含此功能的分支上创建 Codespace。使用高级创建选项选择 **Excel Row Counter (Python)** 配置；已有其他配置的 Codespace 也可手动执行上面的安装命令。
 2. 进入 `excel_row_counter/python`，配置 `.env`。也可在 GitHub Codespaces secrets 配置同名变量并授权此仓库，避免把密钥写入文件。
@@ -59,7 +84,7 @@ python -m excel_counter
 
 只公开 webhook 端口。`.env`、`.runtime/`、本地 Excel 均已忽略；不要提交密钥、真实附件或数据库。SQLite 文件保留在 `.runtime/jobs.sqlite3`，删除 Codespace 前如需保留历史应备份该目录。
 
-## 飞书配置
+## 飞书 webhook 配置
 
 使用**企业自建应用机器人**，在开发者后台启用机器人并配置测试人员可用范围。
 
@@ -96,6 +121,6 @@ HTTP 回调不下载附件、不等待消息 API。只有收到通知发送成�
 python -m pytest -q
 ```
 
-测试生成临时 xlsx/xls，覆盖多表、空表、空白/格式行、公式、2000 行、损坏文件、扫描/解压限制、加密回调、验签、重复事件、任务租约恢复、接收与结果顺序、通知失败后仅补发结果，以及本地 HTTP 替身上的飞书请求契约。无需真实飞书密钥，不访问用友。
+测试生成临时 xlsx/xls，覆盖多表、空表、空白/格式行、公式、2000 行、损坏文件、扫描/解压限制、加密回调、验签、重复事件、任务租约恢复、接收与结果顺序、通知失败后仅补发结果，以及本地 HTTP 替身上的飞书请求契约。长连接另用官方 SDK 模型和实际事件分发器验证注册、过滤、重复事件和完整计数回复流程。无需真实飞书密钥，不访问用友。
 
 真实飞书联调仍需配置自己的应用并实际发送文件。CI 和本地模拟测试不能证明某个租户的权限配置已经正确。
