@@ -1,0 +1,13 @@
+{
+  "name": "Excel Row Counter (Python)",
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {"label": "Feishu Excel webhook", "onAutoForward": "notify"}
+  },
+  "postCreateCommand": "python -m pip install -r excel_row_counter/python/requirements-dev.txt",
+  "remoteEnv": {"PYTHONUNBUFFERED": "1"},
+  "customizations": {
+    "vscode": {"extensions": ["ms-python.python"]}
+  }
+}

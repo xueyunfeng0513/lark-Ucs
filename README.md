@@ -3,6 +3,7 @@
 ## Overview
 This is used to open Feishu code samples to help developers quickly use Feishu capabilities. The project contains the following code samples:
 - [Quickly develop a bot](robot_quick_start/python/README.md)
+- [Receive Excel files and report row counts (Python)](excel_row_counter/python/README.md)
 - [Quickly develop a web app](web_app_with_jssdk/python/README.md)
 - [Quickly create a login-free web app](web_app_with_auth/python/README.md)
 - [React+nodejs quickly implements web applications and free web applications](js_web_app/README.md)

@@ -1,0 +1,28 @@
+import os
+from dataclasses import dataclass
+from pathlib import Path
+
+
+@dataclass(frozen=True)
+class Settings:
+    app_id: str
+    app_secret: str
+    verification_token: str
+    encrypt_key: str
+    db_path: Path
+    allowed_open_ids: tuple[str, ...] = ()
+    port: int = 3000
+
+    @classmethod
+    def from_env(cls):
+        names = ("APP_ID", "APP_SECRET", "VERIFICATION_TOKEN", "ENCRYPT_KEY")
+        values = [os.getenv(name, "").strip() for name in names]
+        missing = [name for name, value in zip(names, values) if not value or value.startswith("replace_")]
+        if missing:
+            raise ValueError("请配置：" + ", ".join(missing))
+        port = int(os.getenv("PORT", "3000"))
+        if not 1 <= port <= 65535:
+            raise ValueError("PORT 必须是 1–65535。")
+        return cls(*values, db_path=Path(os.getenv("JOB_DB", ".runtime/jobs.sqlite3")).resolve(),
+                   allowed_open_ids=tuple(item.strip() for item in os.getenv("ALLOWED_OPEN_IDS", "").split(",") if item.strip()),
+                   port=port)

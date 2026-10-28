@@ -1,0 +1,8 @@
+.runtime/
+.pytest_cache/
+.coverage
+__pycache__/
+.env
+.venv/
+*.xlsx
+*.xls
